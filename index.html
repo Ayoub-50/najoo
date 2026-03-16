@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GIF Finder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&display=swap" rel="stylesheet" />
+<style>
+  /* ── Reset & Variables ─────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #050508;
+    --surface:  #0d0d14;
+    --panel:    #13131f;
+    --border:   #1e1e32;
+    --cyan:     #00f5ff;
+    --pink:     #ff2d78;
+    --yellow:   #ffe600;
+    --purple:   #8b5cf6;
+    --text:     #e4e4f0;
+    --muted:    #6b6b8a;
+    --radius:   12px;
+    --glow-c:   0 0 12px #00f5ff88, 0 0 40px #00f5ff33;
+    --glow-p:   0 0 12px #ff2d7888, 0 0 40px #ff2d7833;
+    --transition: .25s cubic-bezier(.4,0,.2,1);
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Rajdhani', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Animated grid background ──────────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0;
+    background-image:
+      linear-gradient(rgba(0,245,255,.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,245,255,.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    animation: gridPulse 8s ease-in-out infinite alternate;
+  }
+  @keyframes gridPulse {
+    from { opacity: .4; }
+    to   { opacity: 1; }
+  }
+
+  /* ── Header ─────────────────────────────────────────────────── */
+  header {
+    position: sticky; top: 0; z-index: 100;
+    backdrop-filter: blur(20px);
+    background: rgba(5,5,8,.85);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex; align-items: center; gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .logo {
+    font-family: 'Orbitron', monospace;
+    font-weight: 900;
+    font-size: clamp(1.2rem, 3vw, 1.6rem);
+    letter-spacing: .08em;
+    background: linear-gradient(135deg, var(--cyan) 0%, var(--pink) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: none;
+    white-space: nowrap;
+    user-select: none;
+    filter: drop-shadow(0 0 18px #00f5ff66);
+  }
+  .logo span { color: var(--pink); -webkit-text-fill-color: var(--pink); }
+
+  /* ── Search bar ──────────────────────────────────────────────── */
+  .search-wrap {
+    flex: 1; max-width: 640px; position: relative;
+    display: flex; align-items: center;
+  }
+  .search-wrap input {
+    width: 100%; padding: 12px 52px 12px 18px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 50px;
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1rem; font-weight: 600;
+    outline: none;
+    transition: border-color var(--transition), box-shadow var(--transition);
+  }
+  .search-wrap input::placeholder { color: var(--muted); }
+  .search-wrap input:focus {
+    border-color: var(--cyan);
+    box-shadow: var(--glow-c);
+  }
+  .search-wrap button {
+    position: absolute; right: 6px;
+    background: linear-gradient(135deg, var(--cyan), var(--purple));
+    border: none; border-radius: 50%;
+    width: 38px; height: 38px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: transform var(--transition), box-shadow var(--transition);
+  }
+  .search-wrap button:hover { transform: scale(1.1); box-shadow: var(--glow-c); }
+  .search-wrap button svg { width: 16px; height: 16px; fill: #000; }
+
+  /* ── Hero section (shown before search) ─────────────────────── */
+  #hero {
+    position: relative; z-index: 1;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; min-height: 72vh;
+    padding: 40px 24px; text-align: center;
+    gap: 28px;
+  }
+  .hero-title {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(2.5rem, 8vw, 5.5rem);
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: .04em;
+    background: linear-gradient(135deg, #fff 0%, var(--cyan) 50%, var(--pink) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: titleGlow 3s ease-in-out infinite alternate;
+  }
+  @keyframes titleGlow {
+    from { filter: drop-shadow(0 0 20px #00f5ff44); }
+    to   { filter: drop-shadow(0 0 50px #00f5ffaa); }
+  }
+  .hero-sub {
+    font-size: clamp(1rem, 2.5vw, 1.3rem);
+    color: var(--muted);
+    font-weight: 300; letter-spacing: .05em;
+  }
+  .hero-search {
+    width: 100%; max-width: 620px; position: relative;
+    display: flex; align-items: center;
+  }
+  .hero-search input {
+    width: 100%; padding: 18px 60px 18px 24px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 50px;
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1.1rem; font-weight: 600;
+    outline: none;
+    transition: border-color var(--transition), box-shadow var(--transition);
+  }
+  .hero-search input::placeholder { color: var(--muted); }
+  .hero-search input:focus {
+    border-color: var(--cyan);
+    box-shadow: var(--glow-c), 0 0 80px #00f5ff11;
+  }
+  .hero-search button {
+    position: absolute; right: 8px;
+    background: linear-gradient(135deg, var(--cyan), var(--purple));
+    border: none; border-radius: 50%;
+    width: 46px; height: 46px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: transform var(--transition), box-shadow var(--transition);
+    font-size: 1.2rem;
+  }
+  .hero-search button:hover { transform: scale(1.12); box-shadow: var(--glow-c); }
+
+  .trending-tags {
+    display: flex; flex-wrap: wrap; justify-content: center;
+    gap: 10px;
+  }
+  .tag {
+    padding: 6px 16px; border-radius: 50px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    font-size: .85rem; font-weight: 600; letter-spacing: .04em;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+  .tag:hover {
+    border-color: var(--cyan); color: var(--cyan);
+    box-shadow: var(--glow-c);
+    background: rgba(0,245,255,.06);
+  }
+
+  /* ── Main results area ───────────────────────────────────────── */
+  #results-section {
+    position: relative; z-index: 1;
+    padding: 0 24px 60px;
+    display: none;
+  }
+  .results-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 24px 0 20px; flex-wrap: wrap; gap: 10px;
+  }
+  .results-meta {
+    font-size: .95rem; color: var(--muted);
+  }
+  .results-meta strong { color: var(--cyan); font-weight: 700; }
+
+  /* ── Masonry / responsive grid ──────────────────────────────── */
+  #gif-grid {
+    columns: 5 220px;
+    column-gap: 14px;
+  }
+  @media (max-width: 600px) { #gif-grid { columns: 2 150px; column-gap: 8px; } }
+
+  /* ── GIF Card ────────────────────────────────────────────────── */
+  .gif-card {
+    break-inside: avoid;
+    margin-bottom: 14px;
+    border-radius: var(--radius);
+    overflow: hidden;
+    position: relative;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    cursor: pointer;
+    transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition);
+    animation: cardIn .4s ease both;
+  }
+  @keyframes cardIn {
+    from { opacity: 0; transform: translateY(18px) scale(.96); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .gif-card:hover {
+    transform: translateY(-4px) scale(1.02);
+    border-color: var(--cyan);
+    box-shadow: var(--glow-c), 0 12px 40px rgba(0,0,0,.6);
+    z-index: 2;
+  }
+  .gif-card img {
+    display: block; width: 100%; height: auto;
+    transition: opacity .2s;
+  }
+  .gif-card-overlay {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: linear-gradient(transparent, rgba(0,0,0,.92));
+    padding: 36px 10px 10px;
+    opacity: 0;
+    transition: opacity var(--transition);
+    display: flex; flex-direction: column; gap: 7px;
+  }
+  .gif-card:hover .gif-card-overlay { opacity: 1; }
+  .gif-card-title {
+    font-size: .78rem; font-weight: 600;
+    color: #fff; letter-spacing: .03em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .gif-card-actions {
+    display: flex; gap: 6px; flex-wrap: wrap;
+  }
+  .card-btn {
+    padding: 4px 10px; border-radius: 50px;
+    border: 1px solid rgba(255,255,255,.15);
+    background: rgba(255,255,255,.08);
+    backdrop-filter: blur(6px);
+    color: #fff; font-size: .72rem; font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition);
+    display: flex; align-items: center; gap: 5px;
+    font-family: 'Rajdhani', sans-serif;
+    letter-spacing: .03em;
+    white-space: nowrap;
+  }
+  .card-btn:hover { background: var(--cyan); border-color: var(--cyan); color: #000; }
+  .card-btn.share-btn:hover { background: var(--pink); border-color: var(--pink); color: #fff; }
+
+  /* ── Skeleton loaders ────────────────────────────────────────── */
+  .skeleton {
+    break-inside: avoid;
+    margin-bottom: 14px;
+    border-radius: var(--radius);
+    background: var(--panel);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    position: relative;
+  }
+  .skeleton::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.04) 50%, transparent 100%);
+    animation: shimmer 1.4s infinite;
+  }
+  @keyframes shimmer {
+    from { transform: translateX(-100%); }
+    to   { transform: translateX(100%); }
+  }
+
+  /* ── Load More ───────────────────────────────────────────────── */
+  #load-more-wrap {
+    display: flex; justify-content: center; margin-top: 32px;
+  }
+  #load-more-btn {
+    padding: 14px 44px;
+    border-radius: 50px;
+    border: 1px solid var(--cyan);
+    background: transparent;
+    color: var(--cyan);
+    font-family: 'Orbitron', monospace;
+    font-size: .85rem; font-weight: 700;
+    letter-spacing: .08em; cursor: pointer;
+    transition: all var(--transition);
+    position: relative; overflow: hidden;
+  }
+  #load-more-btn::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: var(--cyan); transform: scaleX(0);
+    transform-origin: left; transition: transform .3s ease;
+    z-index: -1;
+  }
+  #load-more-btn:hover { color: #000; box-shadow: var(--glow-c); }
+  #load-more-btn:hover::before { transform: scaleX(1); }
+  #load-more-btn:disabled { opacity: .4; cursor: default; }
+
+  /* ── Empty / Error states ────────────────────────────────────── */
+  .state-msg {
+    text-align: center; padding: 60px 20px;
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+  }
+  .state-msg .icon { font-size: 3.5rem; }
+  .state-msg h3 { font-family: 'Orbitron', monospace; font-size: 1.2rem; color: var(--text); }
+  .state-msg p { color: var(--muted); font-size: .95rem; max-width: 320px; }
+
+  /* ── MODAL ───────────────────────────────────────────────────── */
+  #modal {
+    display: none;
+    position: fixed; inset: 0; z-index: 1000;
+    background: rgba(0,0,0,.88);
+    backdrop-filter: blur(16px);
+    align-items: center; justify-content: center;
+    padding: 20px;
+    animation: fadeIn .2s ease;
+  }
+  #modal.open { display: flex; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .modal-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    max-width: 700px; width: 100%;
+    overflow: hidden;
+    box-shadow: 0 0 60px rgba(0,245,255,.12), 0 40px 100px rgba(0,0,0,.7);
+    animation: modalIn .25s cubic-bezier(.34,1.56,.64,1);
+    position: relative;
+  }
+  @keyframes modalIn {
+    from { transform: scale(.88) translateY(20px); opacity: 0; }
+    to   { transform: scale(1) translateY(0); opacity: 1; }
+  }
+  .modal-close {
+    position: absolute; top: 12px; right: 12px; z-index: 10;
+    width: 34px; height: 34px; border-radius: 50%;
+    background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12);
+    color: #fff; font-size: 1.1rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all var(--transition);
+  }
+  .modal-close:hover { background: var(--pink); border-color: var(--pink); transform: rotate(90deg); }
+
+  #modal-img-wrap {
+    background: #000;
+    display: flex; align-items: center; justify-content: center;
+    max-height: 58vh; overflow: hidden;
+  }
+  #modal-img { display: block; max-width: 100%; max-height: 58vh; object-fit: contain; }
+
+  .modal-info {
+    padding: 18px 20px 22px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  #modal-title {
+    font-family: 'Orbitron', monospace; font-size: 1rem;
+    color: var(--text); letter-spacing: .04em;
+  }
+  .modal-actions {
+    display: flex; flex-wrap: wrap; gap: 9px;
+  }
+  .modal-btn {
+    padding: 9px 20px; border-radius: 50px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: .9rem; font-weight: 700; letter-spacing: .04em;
+    cursor: pointer; transition: all var(--transition);
+    display: flex; align-items: center; gap: 7px;
+    border: 1px solid;
+  }
+  .modal-btn.primary {
+    background: linear-gradient(135deg, var(--cyan), var(--purple));
+    border-color: transparent; color: #000;
+  }
+  .modal-btn.primary:hover { filter: brightness(1.15); box-shadow: var(--glow-c); }
+  .modal-btn.ghost {
+    background: transparent; border-color: var(--border); color: var(--text);
+  }
+  .modal-btn.ghost:hover { border-color: var(--cyan); color: var(--cyan); }
+
+  .share-row {
+    display: flex; flex-wrap: wrap; gap: 9px; align-items: center;
+  }
+  .share-label { font-size: .8rem; color: var(--muted); font-weight: 600; letter-spacing: .06em; }
+  .share-pill {
+    padding: 7px 16px; border-radius: 50px;
+    border: 1px solid var(--border); background: var(--panel);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: .82rem; font-weight: 700; letter-spacing: .03em;
+    cursor: pointer; transition: all var(--transition);
+    display: flex; align-items: center; gap: 6px; color: var(--text);
+  }
+  .share-pill:hover { transform: translateY(-2px); }
+  .share-pill.whatsapp:hover { background: #25d366; border-color: #25d366; color: #fff; box-shadow: 0 0 14px #25d36666; }
+  .share-pill.telegram:hover { background: #2aabee; border-color: #2aabee; color: #fff; box-shadow: 0 0 14px #2aabee66; }
+  .share-pill.twitter:hover  { background: #1d9bf0; border-color: #1d9bf0; color: #fff; box-shadow: 0 0 14px #1d9bf066; }
+  .share-pill.facebook:hover { background: #1877f2; border-color: #1877f2; color: #fff; box-shadow: 0 0 14px #1877f266; }
+  .share-pill.copy:hover     { background: var(--yellow); border-color: var(--yellow); color: #000; box-shadow: 0 0 14px #ffe60066; }
+
+  /* ── Toast ───────────────────────────────────────────────────── */
+  #toast {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: var(--panel); border: 1px solid var(--cyan);
+    color: var(--cyan); padding: 12px 28px; border-radius: 50px;
+    font-family: 'Rajdhani', sans-serif; font-size: .95rem; font-weight: 700;
+    letter-spacing: .04em; z-index: 2000;
+    box-shadow: var(--glow-c);
+    transition: transform .3s cubic-bezier(.34,1.56,.64,1);
+    pointer-events: none; white-space: nowrap;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ── Footer ──────────────────────────────────────────────────── */
+  footer {
+    position: relative; z-index: 1;
+    padding: 40px 20px 32px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    display: flex; flex-direction: column; align-items: center; gap: 20px;
+  }
+  .footer-top {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    text-align: center;
+  }
+  .footer-logo {
+    font-family: 'Orbitron', monospace; font-weight: 900; font-size: 1.1rem;
+    background: linear-gradient(135deg, var(--cyan), var(--pink));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text; letter-spacing: .1em;
+  }
+  .footer-powered {
+    font-size: .78rem; color: var(--muted); letter-spacing: .05em;
+  }
+  .footer-divider {
+    width: 60px; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+  }
+  .footer-dev {
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+  }
+  .footer-dev-label {
+    font-size: .72rem; color: var(--muted); letter-spacing: .12em;
+    font-family: 'Orbitron', monospace; font-weight: 400;
+  }
+  .footer-dev-name {
+    font-family: 'Orbitron', monospace; font-size: .95rem; font-weight: 700;
+    color: var(--text); letter-spacing: .08em;
+  }
+  .footer-ig {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 20px; border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    text-decoration: none; color: var(--text);
+    transition: all var(--transition);
+    font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: .88rem;
+    letter-spacing: .04em;
+  }
+  .footer-ig:hover {
+    border-color: #e1306c;
+    background: rgba(225,48,108,.08);
+    box-shadow: 0 0 18px rgba(225,48,108,.25);
+    transform: translateY(-2px);
+  }
+  .footer-ig:hover .ig-icon { filter: drop-shadow(0 0 8px #e1306c); }
+  .ig-icon {
+    width: 32px; height: 32px; flex-shrink: 0;
+    transition: filter var(--transition);
+  }
+  .footer-copy {
+    font-size: .72rem; color: var(--muted); letter-spacing: .05em;
+  }
+
+  /* ── Trending Suggestions ────────────────────────────────────── */
+  #trending-section {
+    position: relative; z-index: 1;
+    padding: 0 24px 50px;
+    border-bottom: 1px solid var(--border);
+  }
+  .trending-header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 30px 0 22px;
+  }
+  .trending-header h2 {
+    font-family: 'Orbitron', monospace; font-size: .9rem; font-weight: 700;
+    color: var(--muted); letter-spacing: .14em; white-space: nowrap;
+  }
+  .trending-line {
+    flex: 1; height: 1px;
+    background: linear-gradient(90deg, var(--border), transparent);
+  }
+  .suggestions-grid {
+    display: flex; flex-wrap: wrap; gap: 9px;
+  }
+  .sug-tag {
+    padding: 8px 18px; border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: .85rem; font-weight: 700; letter-spacing: .05em;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all var(--transition);
+    text-transform: uppercase;
+  }
+  .sug-tag:hover {
+    border-color: var(--cyan); color: var(--cyan);
+    background: rgba(0,245,255,.06);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0,245,255,.12);
+  }
+  .sug-tag.hot { border-color: rgba(255,45,120,.3); color: var(--pink); background: rgba(255,45,120,.05); }
+  .sug-tag.hot:hover { border-color: var(--pink); background: rgba(255,45,120,.1); box-shadow: 0 4px 16px rgba(255,45,120,.15); }
+
+
+
+</style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header id="site-header">
+  <div class="logo">GIF<span>.</span>FINDER</div>
+  <div class="search-wrap">
+    <input id="header-search" type="text" placeholder="Search GIFs…" />
+    <button id="header-search-btn" aria-label="Search">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" stroke="#000" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<!-- ── Hero ── -->
+<section id="hero">
+  <div class="hero-title">GIF FINDER</div>
+  <p class="hero-sub">SEARCH · DISCOVER · SHARE · DOWNLOAD</p>
+  <div class="hero-search">
+    <input id="hero-input" type="text" placeholder="Type anything… cats, rockets, wow…" />
+    <button id="hero-btn">
+      <svg viewBox="0 0 24 24" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
+        <path d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" stroke="#000" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      </svg>
+    </button>
+  </div>
+  <div class="trending-tags">
+    <span class="tag" data-q="cats">Cats</span>
+    <span class="tag" data-q="funny">Funny</span>
+    <span class="tag" data-q="wow">Wow</span>
+    <span class="tag" data-q="space">Space</span>
+    <span class="tag" data-q="dancing">Dance</span>
+    <span class="tag" data-q="fire">Fire</span>
+    <span class="tag" data-q="anime">Anime</span>
+    <span class="tag" data-q="celebration">Party</span>
+  </div>
+</section>
+
+<!-- ── Trending Suggestions ── -->
+<section id="trending-section">
+  <div class="trending-header">
+    <h2>TRENDING NOW</h2>
+    <div class="trending-line"></div>
+  </div>
+  <div class="suggestions-grid">
+    <span class="sug-tag hot" data-q="trending">Trending</span>
+    <span class="sug-tag hot" data-q="viral">Viral</span>
+    <span class="sug-tag hot" data-q="meme">Meme</span>
+    <span class="sug-tag" data-q="happy">Happy</span>
+    <span class="sug-tag" data-q="sad">Sad</span>
+    <span class="sug-tag" data-q="love">Love</span>
+    <span class="sug-tag" data-q="angry">Angry</span>
+    <span class="sug-tag" data-q="shocked">Shocked</span>
+    <span class="sug-tag" data-q="laughing">Laughing</span>
+    <span class="sug-tag" data-q="crying">Crying</span>
+    <span class="sug-tag" data-q="celebration">Celebration</span>
+    <span class="sug-tag" data-q="running">Running</span>
+    <span class="sug-tag" data-q="sleeping">Sleeping</span>
+    <span class="sug-tag" data-q="thinking">Thinking</span>
+    <span class="sug-tag" data-q="clapping">Clapping</span>
+    <span class="sug-tag" data-q="waving">Waving</span>
+    <span class="sug-tag" data-q="dog">Dog</span>
+    <span class="sug-tag" data-q="cat">Cat</span>
+    <span class="sug-tag" data-q="baby">Baby</span>
+    <span class="sug-tag" data-q="basketball">Basketball</span>
+    <span class="sug-tag" data-q="football">Football</span>
+    <span class="sug-tag" data-q="gaming">Gaming</span>
+    <span class="sug-tag" data-q="music">Music</span>
+    <span class="sug-tag" data-q="anime">Anime</span>
+    <span class="sug-tag" data-q="nature">Nature</span>
+    <span class="sug-tag" data-q="explosion">Explosion</span>
+    <span class="sug-tag" data-q="night sky">Night Sky</span>
+    <span class="sug-tag" data-q="ocean waves">Ocean</span>
+    <span class="sug-tag" data-q="robot">Robot</span>
+    <span class="sug-tag hot" data-q="epic">Epic</span>
+  </div>
+</section>
+
+<!-- ── Results ── -->
+<section id="results-section">
+  <div class="results-header">
+    <div class="results-meta">Results for <strong id="query-label"></strong></div>
+  </div>
+  <div id="gif-grid"></div>
+  <div id="load-more-wrap">
+    <button id="load-more-btn">LOAD MORE</button>
+  </div>
+</section>
+
+<!-- ── Modal ── -->
+<div id="modal">
+  <div class="modal-box">
+    <button class="modal-close" id="modal-close">✕</button>
+    <div id="modal-img-wrap">
+      <img id="modal-img" src="" alt="" loading="lazy" />
+    </div>
+    <div class="modal-info">
+      <div id="modal-title"></div>
+      <div class="modal-actions">
+        <button class="modal-btn primary" id="modal-download">⬇ Download GIF</button>
+        <button class="modal-btn ghost" id="modal-copy">🔗 Copy Link</button>
+      </div>
+      <div class="share-row">
+        <span class="share-label">SHARE →</span>
+        <button class="share-pill whatsapp" id="modal-wa">🟢 WhatsApp</button>
+        <button class="share-pill telegram" id="modal-tg">✈ Telegram</button>
+        <button class="share-pill twitter" id="modal-tw">𝕏 Twitter</button>
+        <button class="share-pill facebook" id="modal-fb">🔵 Facebook</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast ── -->
+<div id="toast">Copied!</div>
+
+<!-- ── Footer ── -->
+<footer>
+  <div class="footer-top">
+    <div class="footer-logo">GIF FINDER</div>
+    <div class="footer-powered">Powered by Tenor API</div>
+  </div>
+  <div class="footer-divider"></div>
+  <div class="footer-dev">
+    <div class="footer-dev-label">DEVELOPED BY</div>
+    <div class="footer-dev-name">GASRI NADJI</div>
+    <a class="footer-ig" href="https://www.instagram.com/gasri_nadji?igsh=aTR6a2doOWVmamk3" target="_blank" rel="noopener">
+      <!-- Realistic Instagram gradient icon -->
+      <svg class="ig-icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="ig-grad1" cx="30%" cy="107%" r="120%">
+            <stop offset="0%" stop-color="#ffd600"/>
+            <stop offset="25%" stop-color="#ff6a00"/>
+            <stop offset="50%" stop-color="#ee0979"/>
+            <stop offset="75%" stop-color="#c0158c"/>
+            <stop offset="100%" stop-color="#6c2eb9"/>
+          </radialGradient>
+          <radialGradient id="ig-grad2" cx="10%" cy="100%" r="80%">
+            <stop offset="0%" stop-color="#ffd600" stop-opacity="1"/>
+            <stop offset="50%" stop-color="#ff6a00" stop-opacity=".5"/>
+            <stop offset="100%" stop-color="#ff6a00" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <rect width="48" height="48" rx="13" fill="url(#ig-grad1)"/>
+        <rect width="48" height="48" rx="13" fill="url(#ig-grad2)"/>
+        <rect x="9" y="9" width="30" height="30" rx="9" stroke="#fff" stroke-width="2.5" fill="none"/>
+        <circle cx="24" cy="24" r="7.5" stroke="#fff" stroke-width="2.5" fill="none"/>
+        <circle cx="34" cy="14" r="2" fill="#fff"/>
+      </svg>
+      @gasri_nadji
+    </a>
+  </div>
+  <div class="footer-copy">© 2026 GIF Finder · All rights reserved</div>
+</footer>
+
+<script>
+/* ══ State ══ */
+const API_KEY = 'LIVDSRZULELA'; // Tenor public demo key
+let nextPos   = '';             // Tenor uses a cursor string
+let currentQuery = '';
+let currentOffset = 0;
+const PAGE_SIZE = 20;
+let isLoading = false;
+let currentGifUrl = '';
+
+/* ══ DOM Refs ══ */
+const siteHeader   = document.getElementById('site-header');
+const heroSection  = document.getElementById('hero');
+const heroInput    = document.getElementById('hero-input');
+const heroBtnEl    = document.getElementById('hero-btn');
+const headerSearch = document.getElementById('header-search');
+const headerBtn    = document.getElementById('header-search-btn');
+const resultsSection = document.getElementById('results-section');
+const gifGrid      = document.getElementById('gif-grid');
+const queryLabel   = document.getElementById('query-label');
+const loadMoreBtn  = document.getElementById('load-more-btn');
+const modal        = document.getElementById('modal');
+const modalClose   = document.getElementById('modal-close');
+const modalImg     = document.getElementById('modal-img');
+const modalTitle   = document.getElementById('modal-title');
+const modalDownload = document.getElementById('modal-download');
+const modalCopy    = document.getElementById('modal-copy');
+const modalWa      = document.getElementById('modal-wa');
+const modalTg      = document.getElementById('modal-tg');
+const modalTw      = document.getElementById('modal-tw');
+const modalFb      = document.getElementById('modal-fb');
+const toast        = document.getElementById('toast');
+
+/* ══ Boot immediately ══ */
+siteHeader.style.display = 'flex';
+heroSection.style.display = 'flex';
+
+/* ══ Search ══ */
+function triggerSearch(q) {
+  q = q.trim();
+  if (!q) return;
+  currentQuery = q;
+  currentOffset = 0;
+  nextPos = '';
+  headerSearch.value = q;
+  heroSection.style.display = 'none';
+  document.getElementById('trending-section').style.display = 'none';
+  resultsSection.style.display = 'block';
+  queryLabel.textContent = `"${q}"`;
+  gifGrid.innerHTML = '';
+  loadMoreBtn.disabled = false;
+  loadMoreBtn.style.display = '';
+  loadMoreBtn.textContent = 'LOAD MORE';
+  fetchGifs(true);
+}
+
+heroInput.addEventListener('keydown', e => e.key === 'Enter' && triggerSearch(heroInput.value));
+heroBtnEl.addEventListener('click', () => triggerSearch(heroInput.value));
+headerSearch.addEventListener('keydown', e => e.key === 'Enter' && triggerSearch(headerSearch.value));
+headerBtn.addEventListener('click', () => triggerSearch(headerSearch.value));
+
+document.querySelectorAll('.tag, .sug-tag').forEach(t =>
+  t.addEventListener('click', () => {
+    heroInput.value = t.dataset.q;
+    triggerSearch(t.dataset.q);
+  })
+);
+
+loadMoreBtn.addEventListener('click', () => fetchGifs(false));
+
+/* ══ Fetch — Tenor API ══ */
+async function fetchGifs(reset = false) {
+  if (isLoading) return;
+  isLoading = true;
+  loadMoreBtn.disabled = true;
+  loadMoreBtn.textContent = 'LOADING…';
+
+  if (reset) renderSkeletons(PAGE_SIZE);
+
+  let apiUrl = `https://api.tenor.com/v1/search?q=${encodeURIComponent(currentQuery)}&key=${API_KEY}&limit=${PAGE_SIZE}&contentfilter=medium&media_filter=minimal`;
+  if (nextPos) apiUrl += `&pos=${nextPos}`;
+
+  try {
+    const res  = await fetch(apiUrl);
+    const data = await res.json();
+
+    if (reset) gifGrid.innerHTML = '';
+
+    const results = data.results || [];
+    if (results.length === 0) {
+      if (reset) {
+        gifGrid.innerHTML = `
+          <div class="state-msg" style="grid-column:1/-1">
+            <div class="icon">🕳</div>
+            <h3>No GIFs Found</h3>
+            <p>Try a different keyword. The universe has no GIFs for "${currentQuery}"… yet.</p>
+          </div>`;
+        loadMoreBtn.style.display = 'none';
+      } else {
+        loadMoreBtn.disabled = true;
+        loadMoreBtn.textContent = 'ALL CAUGHT UP';
+      }
+      isLoading = false;
+      return;
+    }
+
+    // Save cursor for next page
+    nextPos = data.next || '';
+    currentOffset += results.length;
+    loadMoreBtn.style.display = '';
+
+    results.forEach((item, i) => {
+      const media   = item.media?.[0] || {};
+      const gifUrl  = media.gif?.url || media.tinygif?.url || '';
+      const origUrl = media.gif?.url || gifUrl;
+      const title   = item.title || item.h1_title || 'GIF';
+
+      const card = document.createElement('div');
+      card.className = 'gif-card';
+      card.style.animationDelay = `${i * 30}ms`;
+      card.innerHTML = `
+        <img src="${gifUrl}" alt="${title}" loading="lazy" />
+        <div class="gif-card-overlay">
+          <div class="gif-card-title">${title}</div>
+          <div class="gif-card-actions">
+            <button class="card-btn dl-btn">⬇ Download</button>
+            <button class="card-btn share-btn">↗ Share</button>
+            <button class="card-btn copy-btn">🔗 Copy</button>
+          </div>
+        </div>`;
+
+      card.querySelector('img').addEventListener('click', () => openModal(origUrl, title));
+      card.addEventListener('click', e => { if (!e.target.closest('.card-btn')) openModal(origUrl, title); });
+      card.querySelector('.dl-btn').addEventListener('click',   e => { e.stopPropagation(); downloadGif(origUrl, title); });
+      card.querySelector('.share-btn').addEventListener('click', e => { e.stopPropagation(); openModal(origUrl, title); });
+      card.querySelector('.copy-btn').addEventListener('click',  e => { e.stopPropagation(); copyToClipboard(origUrl); });
+
+      gifGrid.appendChild(card);
+    });
+
+    if (!nextPos || results.length < PAGE_SIZE) {
+      loadMoreBtn.disabled = true;
+      loadMoreBtn.textContent = 'ALL CAUGHT UP';
+    } else {
+      loadMoreBtn.disabled = false;
+      loadMoreBtn.textContent = 'LOAD MORE';
+    }
+  } catch (err) {
+    console.error(err);
+    if (reset) gifGrid.innerHTML = `
+      <div class="state-msg" style="grid-column:1/-1">
+        <div class="icon">⚠️</div>
+        <h3>Something went wrong</h3>
+        <p>Failed to load GIFs. Check your internet connection and try again.</p>
+      </div>`;
+    loadMoreBtn.disabled = false;
+    loadMoreBtn.textContent = 'RETRY';
+  }
+
+  isLoading = false;
+}
+
+/* ══ Skeletons ══ */
+function renderSkeletons(count) {
+  gifGrid.innerHTML = '';
+  for (let i = 0; i < count; i++) {
+    const s = document.createElement('div');
+    s.className = 'skeleton';
+    s.style.height = `${120 + Math.random() * 140}px`;
+    gifGrid.appendChild(s);
+  }
+}
+
+/* ══ Modal ══ */
+function openModal(url, title) {
+  currentGifUrl = url;
+  modalImg.src = url;
+  modalTitle.textContent = title;
+  modal.classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  const enc = encodeURIComponent(url);
+  const msg = encodeURIComponent(`Check out this GIF: ${url}`);
+  modalWa.onclick = () => window.open(`https://wa.me/?text=${msg}`, '_blank');
+  modalTg.onclick = () => window.open(`https://t.me/share/url?url=${enc}&text=${encodeURIComponent('Check this GIF!')}`, '_blank');
+  modalTw.onclick = () => window.open(`https://twitter.com/intent/tweet?text=${msg}`, '_blank');
+  modalFb.onclick = () => window.open(`https://www.facebook.com/sharer/sharer.php?u=${enc}`, '_blank');
+  modalDownload.onclick = () => downloadGif(url, title);
+  modalCopy.onclick = () => copyToClipboard(url);
+}
+
+function closeModal() {
+  modal.classList.remove('open');
+  document.body.style.overflow = '';
+  modalImg.src = '';
+}
+
+modalClose.addEventListener('click', closeModal);
+modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+/* ══ Download ══ */
+async function downloadGif(url, title) {
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.gif`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showToast('Download started!');
+  } catch {
+    // Fallback: open in new tab
+    window.open(url, '_blank');
+    showToast('Opened in new tab');
+  }
+}
+
+/* ══ Copy ══ */
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => showToast('Link copied!')).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('Link copied!');
+  });
+}
+
+/* ══ Toast ══ */
+let toastTimer;
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+}
+</script>
+</body>
+</html>
